@@ -5,20 +5,27 @@ import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.*;
+import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.util.CharsetUtil;
 
+import javax.net.ssl.SSLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 
-public class NettyHttpClient {
+public class NettyHttpsClient {
     private final String host;
     private final int port;
     private final URI uri;
+    private final SslContext sslContext;
 
-    public NettyHttpClient(String host, int port, String protocol) throws URISyntaxException {
+    public NettyHttpsClient(String host, int port, String protocol) throws URISyntaxException, SSLException {
         this.host = host;
-        this.port = port;
-        this.uri = new URI(protocol + host);
+        this.port = port;  // Default HTTPS port
+        this.uri = new URI(protocol + "://" + host);
+        this.sslContext = SslContextBuilder.forClient().build();  // Build the SSL context for client-side SSL
     }
+
     public void get() throws Exception {
         // Configure the EventLoop for handling events
         EventLoopGroup group = new NioEventLoopGroup();
@@ -28,10 +35,13 @@ public class NettyHttpClient {
             Bootstrap bootstrap = new Bootstrap();
             bootstrap.group(group)
                     .channel(NioSocketChannel.class)
-                    .handler(new ChannelInitializer<>() {
+                    .handler(new ChannelInitializer<Channel>() {
                         @Override
                         public void initChannel(Channel ch) {
-                            // Add the HTTP client handlers (for encoding/decoding HTTP)
+                            // Add SSL handler to the pipeline
+                            ch.pipeline().addFirst(sslContext.newHandler(ch.alloc(), host, port));
+
+                            // Add HTTP client handlers (for encoding/decoding HTTP)
                             ch.pipeline().addLast(
                                     new HttpClientCodec(),  // Handles encoding/decoding HTTP
                                     new HttpObjectAggregator(1024 * 1024),  // Aggregates HTTP responses
@@ -39,8 +49,8 @@ public class NettyHttpClient {
                                         @Override
                                         protected void channelRead0(ChannelHandlerContext ctx, FullHttpResponse msg) throws Exception {
                                             // Print out the response
-                                            System.out.println("Response from Google: ");
-                                            System.out.println(msg.content().toString(io.netty.util.CharsetUtil.UTF_8));
+                                            System.out.println("Response from " + host + ": ");
+                                            System.out.println(msg.content().toString(CharsetUtil.UTF_8));
                                             ctx.close();  // Close the channel after receiving the response
                                         }
                                     }
