@@ -7,6 +7,7 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.ssl.SslContext;
 import io.netty.handler.ssl.SslContextBuilder;
+import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.util.CharsetUtil;
 
 import javax.net.ssl.SSLException;
@@ -23,7 +24,8 @@ public class NettyHttpsClient {
         this.host = host;
         this.port = port;  // Default HTTPS port
         this.uri = new URI(protocol + "://" + host);
-        this.sslContext = SslContextBuilder.forClient().build();  // Build the SSL context for client-side SSL
+        this.sslContext = SslContextBuilder.forClient()
+            .trustManager(InsecureTrustManagerFactory.INSTANCE).build();  // Build the SSL context for client-side SSL
     }
 
     public void get() throws Exception {
